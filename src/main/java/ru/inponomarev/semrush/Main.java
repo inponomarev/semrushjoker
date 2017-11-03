@@ -14,7 +14,7 @@ public class Main {
     private static boolean isInFooter(Element e) {
         for (Element parent : e.parents()) {
             /*Если <p> находится внутри <footer>, либо внутри элемента, id которого
-            содержит слово footer -- то такой <p> нам не нужен.
+            содержит слово footer -- то такой <p> нам уже не нужен.
              */
             if ("footer".equals(parent.tagName())
                     || parent.id().contains("footer"))
@@ -26,28 +26,33 @@ public class Main {
 
     public static void parsePage(URL url, PrintWriter osw) throws IOException {
         Document d = Jsoup.parse(url, 10000);
+        int state = 0;
+        elementsCycle:
         for (Element e : d.getAllElements()) {
-
             String innerText = e.text().trim();
             /*
-            Используем самую грубую эвристику: извлекаем <h1> -- главный заголовок -- и <p>.
+            Используем самую грубую эвристику: извлекаем <h1> (главный заголовок)
+            и все следующие за ним <p>.
              */
-            if (!innerText.isEmpty()) {
-                if ("p".equalsIgnoreCase(e.tagName())) {
-                    if (isInFooter(e)) {
-                        //System.out.printf("footer: %s", innerText);
-                        continue;
-                    }
-                    osw.println(innerText);
-                } else if ("h1".equalsIgnoreCase(e.tagName())) {
-                    StringBuilder l = new StringBuilder();
-                    l.append('#');
-                    l.append(' ');
-                    l.append(innerText);
-                    osw.println(l.toString());
+            if (!innerText.isEmpty())
+                switch (state) {
+                    case 0: //ищем заголовок
+                        if ("h1".equalsIgnoreCase(e.tagName())) {
+                            osw.println("# " + innerText);
+                            osw.println();
+                            state = 1;
+                        }
+                        break;
+                    case 1: //читаем абзацы
+                        if ("p".equalsIgnoreCase(e.tagName())) {
+                            if (isInFooter(e)) {
+                                //System.out.printf("footer: %s", innerText);
+                                break elementsCycle;
+                            }
+                            osw.println(innerText);
+                            osw.println();
+                        }
                 }
-                osw.println();
-            }
         }
     }
 
