@@ -8,35 +8,45 @@ import javax.net.ssl.SSLHandshakeException;
 import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class Main {
 
-    private static final Pattern h = Pattern.compile("h(1)");
+    private static boolean isInFooter(Element e) {
+        for (Element parent : e.parents()) {
+            /*Если <p> находится внутри <footer>, либо внутри элемента, id которого
+            содержит слово footer -- то такой <p> нам не нужен.
+             */
+            if ("footer".equals(parent.tagName())
+                    || parent.id().contains("footer"))
+                return true;
+        }
+        return false;
+    }
+
 
     public static void parsePage(URL url, PrintWriter osw) throws IOException {
         Document d = Jsoup.parse(url, 10000);
         for (Element e : d.getAllElements()) {
 
             String innerText = e.text().trim();
+            /*
+            Используем самую грубую эвристику: извлекаем <h1> -- главный заголовок -- и <p>.
+             */
             if (!innerText.isEmpty()) {
-                if ("p".equals(e.tagName())) {
-                    osw.println(innerText);
-                    osw.println();
-                } else {
-                    Matcher m = h.matcher(e.tagName());
-                    if (m.matches()) {
-                        int level = Integer.parseInt(m.group(1));
-                        StringBuilder l = new StringBuilder();
-                        for (int i = 0; i < level; i++)
-                            l.append('#');
-                        l.append(' ');
-                        l.append(innerText);
-                        osw.println(l.toString());
-                        osw.println();
+                if ("p".equalsIgnoreCase(e.tagName())) {
+                    if (isInFooter(e)) {
+                        //System.out.printf("footer: %s", innerText);
+                        continue;
                     }
+                    osw.println(innerText);
+                } else if ("h1".equalsIgnoreCase(e.tagName())) {
+                    StringBuilder l = new StringBuilder();
+                    l.append('#');
+                    l.append(' ');
+                    l.append(innerText);
+                    osw.println(l.toString());
                 }
+                osw.println();
             }
         }
     }
@@ -64,9 +74,9 @@ public class Main {
                 File outFile = new File(i + ".md");
                 try (PrintWriter pw = new PrintWriter(
                         new OutputStreamWriter(
-                        new FileOutputStream(outFile),
-                        StandardCharsets.UTF_8)
-                        )) {
+                                new FileOutputStream(outFile),
+                                StandardCharsets.UTF_8)
+                )) {
                     System.out.printf("%s -> %s%n", url, outFile);
                     try {
                         parsePage(url, pw);
