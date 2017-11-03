@@ -3,6 +3,8 @@ package ru.inponomarev.semrush;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
+import org.jsoup.nodes.TextNode;
 
 import javax.net.ssl.SSLHandshakeException;
 import java.io.*;
@@ -49,10 +51,51 @@ public class Main {
                                 //System.out.printf("footer: %s", innerText);
                                 break elementsCycle;
                             }
-                            osw.println(innerText);
-                            osw.println();
+                            parseParagraph(osw, e);
                         }
                 }
+        }
+    }
+
+    private static void parseParagraph(PrintWriter osw, Element e) {
+        StringBuilder txt = new StringBuilder();
+        boolean linkOnly = true;
+        for (Node child : e.childNodes()) {
+            if (child instanceof TextNode) {
+                TextNode tn = (TextNode) child;
+                txt.append(tn.getWholeText());
+                linkOnly = false;
+            } else if (child instanceof Element) {
+                Element childe = (Element) child;
+                if ("a".equalsIgnoreCase(childe.tagName())) {
+                    txt.append("[");
+                    txt.append(childe.text());
+                    txt.append("](");
+                    txt.append(childe.attr("href"));
+                    txt.append(")");
+                } else if ("b".equalsIgnoreCase(childe.tagName())
+                        || "strong".equalsIgnoreCase(childe.tagName())) {
+                    txt.append("**");
+                    txt.append(childe.text());
+                    txt.append("**");
+                    linkOnly = false;
+                } else if ("i".equalsIgnoreCase(childe.tagName())) {
+                    txt.append("*");
+                    txt.append(childe.text());
+                    txt.append("*");
+                    linkOnly = false;
+                } else {
+                    txt.append(childe.text());
+                    linkOnly = false;
+                }
+            }
+        }
+        /*
+        Абзац, состоящий только из ссылки, скорее всего является элементом навигации.
+         */
+        if (!linkOnly) {
+            osw.println(txt.toString().trim());
+            osw.println();
         }
     }
 
